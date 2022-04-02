@@ -36,33 +36,43 @@ def slugify(value, allow_unicode=False):
 
 def visualize(config):
     for item in config:
+        if "type" in item and item["type"] == "json":
+            continue
+
         resp = requests.get(item["url"], headers=headers, verify=False)
-        resp_beaut = BeautifulSoup(resp.text, 'html.parser')
-        print(resp_beaut)
-
-        # remove elements from html if del-selector provided
-        if "del-selector" in item:
-            for selector in item["del-selector"]:
-                for elem in resp_beaut.select(selector):
-                    elem.decompose()
-
-        # turn selected bs4 html into string
-        resp_text = []
-        for i in resp_beaut.select(item["selector"]):
-            resp_text.extend(str(i).split("\n"))
+        resp_text = parse_html(resp.text, item)
 
         print(item["name"])
         print("--------")
         print("\n".join(resp_text))
         print("--------\n")
 
+def parse_html(html, config_item):
+    # format html
+    beaut = BeautifulSoup(html, 'html.parser')
+
+    # remove elements from html if del-selector provided
+    if "del-selector" in config_item:
+        for selector in config_item["del-selector"]:
+            for elem in beaut.select(selector):
+                elem.decompose()
+
+    # turn selected bs4 html into string list
+    html_lines = []
+    for i in beaut.select(config_item["selector"]):
+        html_lines.extend(str(i).split("\n"))
+
+    return html_lines
 
 def change_detection(config,diffs_path='./diffs/'):
     for item in config:
+        if "type" in item and item["type"] == "json":
+            continue
+
         # print(item["name"])
         filename = slugify(item["name"])
         resp = requests.get(item["url"], headers=headers, verify=False)
-        resp_beaut = BeautifulSoup(resp.text, 'html.parser')
+        resp_text = parse_html(resp.text, item)
 
         # if first time running, save html to file
         if not os.path.exists(diffs_path+filename):
@@ -71,24 +81,9 @@ def change_detection(config,diffs_path='./diffs/'):
             diff_file.close()
             continue
         diff_file = open(diffs_path+filename, "r")
-        diff_beaut = BeautifulSoup(diff_file, 'html.parser')
+        diff_text = parse_html(diff_file, item)
         diff_file.close
 
-        # remove elements from html if del-selector provided
-        if "del-selector" in item:
-            for selector in item["del-selector"]:
-                for elem in diff_beaut.select(selector):
-                    elem.decompose()
-                for elem in resp_beaut.select(selector):
-                    elem.decompose()
-
-        # turn selected bs4 html into string
-        diff_text = []
-        for i in diff_beaut.select(item["selector"]):
-            diff_text.extend(str(i).split("\n"))
-        resp_text = []
-        for i in resp_beaut.select(item["selector"]):
-            resp_text.extend(str(i).split("\n"))
 
         # if html is different
         if diff_text != resp_text:
