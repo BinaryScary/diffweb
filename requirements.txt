@@ -1,0 +1,4 @@
+beautifulsoup4==4.10.0
+requests==2.27.1
+telegram_send==0.25
+urllib3==1.26.8
