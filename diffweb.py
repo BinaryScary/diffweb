@@ -57,7 +57,7 @@ def visualize(config):
         print("--------\n")
 
 
-def change_detection(config):
+def change_detection(config,diffs_path='./diffs/'):
     for item in config:
         # print(item["name"])
         filename = slugify(item["name"])
@@ -65,12 +65,12 @@ def change_detection(config):
         resp_beaut = BeautifulSoup(resp.text, 'html.parser')
 
         # if first time running, save html to file
-        if not os.path.exists('./diffs/'+filename):
-            diff_file = open('./diffs/'+filename, "w")
+        if not os.path.exists(diffs_path+filename):
+            diff_file = open(diffs_path+filename, "w")
             diff_file.write(resp.text)
             diff_file.close()
             continue
-        diff_file = open('./diffs/'+filename, "r")
+        diff_file = open(diffs_path+filename, "r")
         diff_beaut = BeautifulSoup(diff_file, 'html.parser')
         diff_file.close
 
@@ -100,7 +100,7 @@ def change_detection(config):
             telegram_send.send(messages=[message])
 
             # write new html to file
-            diff_file = open('./diffs/'+filename, "w")
+            diff_file = open(diffs_path+filename, "w")
             diff_file.write(resp.text)
             diff_file.close()
 
@@ -116,11 +116,12 @@ if __name__ == '__main__':
     with open(args.config, 'r') as f:
       config = json.load(f)
 
-    if not os.path.exists('diffs'):
-        os.makedirs('diffs')
+    diffs_path = os.path.dirname(os.path.realpath(__file__))+'/diffs/'
+    if not os.path.exists(diffs_path):
+        os.makedirs(diffs_path)
 
     if args.visualize:
         visualize(config)
         quit()
 
-    change_detection(config)
+    change_detection(config, diffs_path)
