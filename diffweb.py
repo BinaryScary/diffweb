@@ -25,7 +25,7 @@ headers = {
 # get bot chat_id: https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id
 def send_message(message):
     # client = TelegramClient(None, api_id=config.api_id,  api_hash=config.api_hash)
-    client = TelegramClient(os.path.realpath(__file__))+'/bot.session', api_id=config.api_id,  api_hash=config.api_hash)
+    client = TelegramClient(os.path.dirname(os.path.realpath(__file__))+'/bot.session', api_id=config.api_id,  api_hash=config.api_hash)
     bot = client.start(bot_token=config.bot_token)
     bot.send_message(config.chat_id,message)
     # client.log_out()
