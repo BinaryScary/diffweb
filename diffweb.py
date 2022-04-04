@@ -1,11 +1,12 @@
 import requests
+import config # api keys
 from bs4 import BeautifulSoup # html beautifier
 import json # load json config
 import os # create diff directory
 import difflib # diffing html strings
 import unicodedata # filename slugify
 import re # filename slugify
-import telegram_send # telegram messages
+from telethon.sync import TelegramClient # telegram messages
 import argparse # argument parsing
 import jsonpath_ng # jsonpath
 import traceback # exception tracebacks
@@ -18,6 +19,16 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 headers = {
     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:98.0) Gecko/20100101 Firefox/98.0'
 }
+
+# create api key: https://docs.telethon.dev/en/latest/basic/signing-in.html
+# create bot: https://core.telegram.org/bots#6-botfather
+# get bot chat_id: https://stackoverflow.com/questions/32423837/telegram-bot-how-to-get-a-group-chat-id
+def send_message(message):
+    # client = TelegramClient(None, api_id=config.api_id,  api_hash=config.api_hash)
+    client = TelegramClient(os.path.realpath(__file__))+'/bot.session', api_id=config.api_id,  api_hash=config.api_hash)
+    bot = client.start(bot_token=config.bot_token)
+    bot.send_message(config.chat_id,message)
+    # client.log_out()
 
 # string to filename
 def slugify(value, allow_unicode=False):
@@ -69,8 +80,8 @@ def parse_json(json_text, config_item):
     return json_lines
 
 
-def change_detection(config,diffs_path='./diffs/',visualize=False):
-    for item in config:
+def change_detection(config_json,diffs_path='./diffs/',visualize=False):
+    for item in config_json:
         # request html from site
         resp = requests.get(item["url"], headers=headers, verify=False)
 
@@ -78,7 +89,7 @@ def change_detection(config,diffs_path='./diffs/',visualize=False):
         if not resp:
             message = "Item {} HTTP request failed with code: {}".format(item["name"], resp.status_code)
             print(message)
-            telegram_send.send(messages=[message])
+            send_message(message)
             continue
 
         # if first time running, save html to file
@@ -103,7 +114,7 @@ def change_detection(config,diffs_path='./diffs/',visualize=False):
         except Exception as e:
             message = "Item {} parsing failed with error: {}\n {}".format(item["name"], e, traceback.format_exc())
             print(message)
-            # telegram_send.send(messages=[message])
+            send_message(message)
             continue
 
         if visualize:
@@ -116,11 +127,11 @@ def change_detection(config,diffs_path='./diffs/',visualize=False):
         # if list of parsed lines are different
         if diff_parsed != resp_parsed:
             # create diff
-            compare = difflib.unified_diff(diff_parsed, resp_parsed, fromfile='before', tofile='after', n=5)
+            compare = difflib.unified_diff(diff_parsed, resp_parsed, fromfile='before', tofile='after', lineterm='', n=5)
             # send telegram message
-            message = "{}\n{}\n---\n{}\n---".format(item["name"],item["url"],"\n".join(compare))
+            message = "{}\n{}\n```\n{}\n```".format(item["name"],item["url"],"\n".join(compare))
             print(message)
-            telegram_send.send(messages=[message])
+            send_message(message)
 
             # write new html to file
             diff_file = open(diffs_path+filename, "w")
@@ -128,6 +139,7 @@ def change_detection(config,diffs_path='./diffs/',visualize=False):
             diff_file.close()
 
 # workflow: Inspect->Copy->CSS Selector, test in https://try.jsoup.org/ with unmodified html source, del-selector if needed, visualize to confirm
+# workflow json: https://jsonpathfinder.com/, https://regex101.com/
 # **If data is needed after javascript DOM manipulation try to find additional request, I.E JSON, XML, ect, or use Pyppeteer, Selenium**
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Detect changes in web content')
@@ -137,10 +149,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     with open(args.config, 'r') as f:
-      config = json.load(f)
+      config_json = json.load(f)
 
     diffs_path = os.path.dirname(os.path.realpath(__file__))+'/diffs/'
     if not os.path.exists(diffs_path):
         os.makedirs(diffs_path)
 
-    change_detection(config, diffs_path, args.visualize)
+    change_detection(config_json, diffs_path, args.visualize)
